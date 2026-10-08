@@ -12,6 +12,7 @@ Medidas e cores foram extraídas do MODELO.docx. A largura da abertura acompanha
 a área útil do parecer; as proporções internas seguem a grade original.
 """
 
+import re
 from dataclasses import dataclass, replace
 from datetime import date
 from io import BytesIO
@@ -58,6 +59,12 @@ ORGANIZATION_LINES = (
 )
 DEFAULT_AUTHORS = "Fundação dos Economiários Federais – FUNCEF"
 DEFAULT_OPERATION = "Empréstimo"
+BRAZILIAN_STATES = (
+    "", "AC", "AL", "AM", "AP", "BA", "CE", "DF", "ES", "GO", "MA", "MG", "MS", "MT", "PA", "PB",
+    "PE", "PI", "PR", "RJ", "RN", "RO", "RR", "RS", "SC", "SE", "SP", "TO",
+)
+# Numeração única do CNJ (Resolução 65/2008): NNNNNNN-DD.AAAA.J.TR.OOOO
+_CNJ_PROCESS = re.compile(r"^\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}$")
 
 # Escala tipográfica corporativa: uma única família (Helvetica, equivalente
 # métrica do Arial do modelo) e corpo mínimo legível em todo o documento.
@@ -108,6 +115,30 @@ class ManifestationHeader:
     subject: str = ""
     reference: str = ""
     responsible: str = ""
+
+
+_HEADER_LABELS = (
+    ("process_number", "Processo nº"), ("district", "Comarca"), ("court", "Vara"), ("state", "UF"),
+    ("authors", "Autor(es)"), ("lawyer", "Advogado responsável"), ("borrowers", "Mutuário(s)"),
+    ("registrations", "Matrícula(s)"), ("operation", "Operação com participante"),
+    ("contracts", "Contrato(s)"), ("modality", "Modalidade"), ("destination_area", "Área de destino"),
+    ("subject", "Assunto"), ("reference", "Referência"), ("responsible", "Responsável pela informação"),
+)
+
+
+def header_review(header: ManifestationHeader) -> list[str]:
+    """Avisos não bloqueantes sobre o cabeçalho preenchido manualmente."""
+    notices = []
+    blank = [label for field, label in _HEADER_LABELS if not str(getattr(header, field) or "").strip()]
+    if blank:
+        notices.append("Campos do cabeçalho em branco no PDF: " + ", ".join(blank) + ".")
+    process = header.process_number.strip()
+    if process and not _CNJ_PROCESS.match(process):
+        notices.append(
+            "O número do processo não segue o padrão CNJ (0000000-00.0000.0.00.0000). "
+            "Confira antes de gerar o PDF; ele será impresso exatamente como digitado."
+        )
+    return notices
 
 
 def _styles():

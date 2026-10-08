@@ -2,7 +2,7 @@
 
 Aplicação Streamlit para cálculos financeiros e contratuais, organizada para execução no Databricks Apps ou em qualquer ambiente Python/contêiner compatível.
 
-**Versão do aplicativo:** `0.10.10`
+**Versão do aplicativo:** `0.10.11`
 
 ## Módulos
 
@@ -50,11 +50,9 @@ Na v0.9.3 o MAJS permite encerrar o contrato antes do prazo originalmente contra
 
 ## Privacidade na versão web
 
-Enquanto o Motor estiver executando fora do Databricks, os documentos não coletam nem exibem nome, matrícula ou CPF do participante, nem identificação de elaborador ou validador. Os modelos de dados preservam esses campos para futura reativação no ambiente corporativo. Campos vazios são omitidos integralmente dos PDFs, sem rótulos “Não informado”.
+O Motor não acessa a base de participantes e não coleta CPF. As seções técnicas dos pareceres não exibem dados pessoais nem identificação de elaborador ou validador.
 
-O parecer de evolução segue o padrão documental FUNCEF (“Manifestação de Subsídios”): faixa institucional, quadros 01 a 03 (Dados do Processo, Participante e Operação, Demanda) e, ao final, o quadro “Responsável pela informação”. No modo web, Mutuário(s) e Matrícula(s) saem em branco; o responsável pela informação é informado no formulário do parecer.
-
-O parecer é emitido em PDF e em Word (.docx). O arquivo Word é gerado a partir de `templates/modelo_manifestacao_subsidios.docx`, com o mesmo conteúdo do PDF, e permite completar manualmente os campos que o sistema não coleta.
+O parecer de evolução segue o padrão documental FUNCEF (“Manifestação de Subsídios”): faixa institucional, quadros 01 a 03 (Dados do Processo, Participante e Operação, Demanda) e, ao final, o quadro “Responsável pela informação”. Todo esse cabeçalho é preenchido manualmente pelo usuário no formulário do parecer, inclusive Mutuário(s) e Matrícula(s); os dados digitados são usados somente na geração do PDF. Campos deixados em branco aparecem vazios no documento, e o formulário avisa quais ficaram em branco e se o número do processo foge do padrão CNJ.
 
 Nos métodos de juros por fração de ano, a apresentação utiliza a terminologia financeira de convenção de contagem de dias (US/NASD 30/360, Real/Real, Real/360, Real/365 ou Europeu 30/360), sem referência a funções de planilha eletrônica.
 

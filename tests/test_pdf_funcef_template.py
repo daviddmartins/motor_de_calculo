@@ -125,27 +125,33 @@ def test_pdf_usa_uma_unica_familia_tipografica():
         assert fonts and fonts <= {b"Helvetica", b"Helvetica-Bold", b"Helvetica-Oblique", b"Helvetica-BoldOblique"}, (code, fonts)
 
 
-def test_parecer_em_word_usa_o_modelo_corporativo_editavel():
-    from io import BytesIO
-    from docx import Document
-    from core.docx_export import build_opinion_docx
+
+def test_cabecalho_manual_inclui_participante_no_pdf_e_revisa_campos():
+    from core.pdf_funcef_template import header_review, opening_story
+    from reportlab.platypus import Paragraph, Table
 
     header = ManifestationHeader(
-        issue_date=date(2026, 9, 21), process_number="0001234-56.2026.8.07.0001",
-        district="Brasília", responsible="Analista Teste",
+        process_number="0001234-56.2026.8.07.0001", borrowers="Fulano de Tal; Beltrana",
+        registrations="123456", responsible="Analista",
     )
-    for code, settings, result in _all_modalities():
-        data = build_opinion_docx(
-            settings=settings, result=result, modality_name=code, identity=_identity(header),
-            selected_installment_numbers=[1, 2], overrides={},
-        )
-        document = Document(BytesIO(data))
-        xml = document.element.xml
-        for expected in ("Manifestação de Subsídios", "0001234-56.2026.8.07.0001", "Brasília",
-                         "21/09/2026", "Analista Teste", "Conclusão técnica", "TESTE-001"):
-            assert expected in xml, (code, expected)
-        assert "Conferido por" not in xml
-        fonts = set(__import__("re").findall(r'w:ascii="([^"]+)"', xml))
-        assert fonts == {"Arial"}, (code, fonts)
-        footer_xml = document.sections[0].footer._element.xml
-        assert " PAGE " in footer_xml and " NUMPAGES " in footer_xml and "COPART" in footer_xml
+    texts = []
+
+    def collect(item):
+        if isinstance(item, Paragraph):
+            texts.append(item.getPlainText())
+        elif isinstance(item, Table):
+            for row in item._cellvalues:
+                for cell in row:
+                    for sub in (cell if isinstance(cell, list) else [cell]):
+                        collect(sub)
+
+    for item in opening_story(header, width=500, logo_path=None, contract_number="999", modality_name="C Fixo"):
+        collect(item)
+    assert "Fulano de Tal; Beltrana" in texts
+    assert "123456" in texts
+    assert "999" in texts and "C Fixo" in texts
+
+    notices = header_review(header)
+    assert not any("CNJ" in n for n in notices)
+    assert any("Comarca" in n for n in notices)
+    assert any("CNJ" in n for n in header_review(ManifestationHeader(process_number="123")))

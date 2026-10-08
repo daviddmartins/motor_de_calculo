@@ -29,8 +29,9 @@ from core.monetary_update import (
     parse_ui_date, excel_yearfrac,
 )
 from core.pdf_reports import ReportIdentity, build_opinion_pdf, pdf_filename
-from core.pdf_funcef_template import DEFAULT_AUTHORS, DEFAULT_OPERATION, ManifestationHeader
-from core.docx_export import build_opinion_docx, docx_filename
+from core.pdf_funcef_template import (
+    BRAZILIAN_STATES, DEFAULT_AUTHORS, DEFAULT_OPERATION, ManifestationHeader, header_review,
+)
 from core.monetary_pdf import build_monetary_update_pdf, build_update_copy_text, monetary_pdf_filename
 from core.court_profiles import get_profiles, build_profile_rules
 from core.majs import (
@@ -58,7 +59,7 @@ INDEX_CONFIG = APP_DIR / "config" / "indices_motor_calculos.xlsx"
 MIN_CREDIT_DATE = date(1994, 1, 1)
 LOGO_PATH = APP_DIR / "assets" / "funcef_logo.png"
 LOGO_WHITE_PATH = APP_DIR / "assets" / "logo_funcef_branca.png"
-VERSION = "0.10.10"
+VERSION = "0.10.11"
 WEEKDAYS_PT = [
     "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira",
     "Sexta-feira", "Sábado", "Domingo",
@@ -248,13 +249,12 @@ def initialize_state():
         "evolution_revision": 0,
         "report_pdf": None,
         "report_pdf_name": None,
-        "report_docx": None,
-        "report_docx_name": None,
         "report_adjustments": {},
         "report_selection_mode": "Duas primeiras",
         "report_identity": None,
         "report_selected_numbers": [],
         "report_validation_messages": [],
+        "report_header_notices": [],
         "result_view": "Resumo por prestação",
         "update_result": None,
         "update_excel": None,
@@ -277,9 +277,9 @@ def saved_input(key: str, default):
 
 def clear_calculation():
     for key in (
-        "evolution_state", "report_pdf", "report_pdf_name", "report_docx", "report_docx_name", "report_adjustments",
+        "evolution_state", "report_pdf", "report_pdf_name", "report_adjustments",
         "show_report_builder", "report_values_editor", "report_selected_custom",
-        "report_identity", "report_selected_numbers", "report_validation_messages",
+        "report_identity", "report_selected_numbers", "report_validation_messages", "report_header_notices",
         "update_result", "update_excel",
     ):
         st.session_state.pop(key, None)
@@ -716,11 +716,11 @@ elif module == "Evolução de contrato":
             st.session_state["extra_editor"] = extra_df.copy()
             st.session_state["evolution_revision"] += 1
             st.session_state["report_pdf"] = None
-            st.session_state["report_docx"] = None
             st.session_state["report_adjustments"] = {}
             st.session_state["report_identity"] = None
             st.session_state["report_selected_numbers"] = []
             st.session_state["report_validation_messages"] = []
+            st.session_state["report_header_notices"] = []
             st.session_state["result_view"] = "Resumo por prestação"
             st.success("Evolução processada e preservada nesta sessão.")
         except (ValueError, KeyError, InvalidOperation) as exc:
@@ -896,8 +896,8 @@ elif module == "Evolução de contrato":
                     ):
                         st.markdown('<div class="mini-heading">Identificação do documento</div>', unsafe_allow_html=True)
                         st.caption(
-                            "Modo web/LGPD: dados pessoais do participante (nome, matrícula, CPF) e validador não são coletados nesta versão. "
-                            "O documento traz apenas o responsável pela informação, conforme o padrão FUNCEF."
+                            "Os dados do participante são digitados no cabeçalho do documento, abaixo, e usados somente na geração do PDF. "
+                            "O Motor não acessa a base de participantes e não coleta CPF."
                         )
                         i1, i2, i3 = st.columns(3)
                         with i1:
@@ -922,32 +922,72 @@ elif module == "Evolução de contrato":
                         validator = ""
                         additional_note = st.text_area("Observação adicional", key="report_additional_note", height=76)
 
-                        with st.expander("Cabeçalho padrão FUNCEF (Manifestação de Subsídios)", expanded=True):
+                        with st.expander("Cabeçalho do documento (preenchimento manual)", expanded=True):
                             st.caption(
-                                "Campos da abertura do documento. Contrato(s) e Modalidade são preenchidos automaticamente; "
-                                "Mutuário(s) e Matrícula(s) saem em branco no modo web/LGPD."
+                                "Estes campos formam a abertura do PDF (quadros 01 a 03) e o quadro final do responsável. "
+                                "O preenchimento é manual: o Motor não consulta a base de participantes e os dados digitados "
+                                "são usados somente na geração deste PDF. Campos em branco aparecem vazios no documento."
                             )
                             st.session_state.setdefault("report_hdr_date", date.today())
                             st.session_state.setdefault("report_hdr_authors", DEFAULT_AUTHORS)
                             st.session_state.setdefault("report_hdr_operation", DEFAULT_OPERATION)
-                            h1, h2, h3 = st.columns(3)
-                            with h1:
+                            st.session_state.setdefault("report_hdr_state", "")
+                            hd1, _ = st.columns([1, 3])
+                            with hd1:
                                 hdr_date = st.date_input("Data do documento", format="DD/MM/YYYY", key="report_hdr_date")
-                                hdr_court = st.text_input("Vara", key="report_hdr_court")
-                                hdr_authors = st.text_input("Autor(es)", key="report_hdr_authors")
-                            with h2:
-                                hdr_process = st.text_input("Processo nº", key="report_hdr_process")
-                                hdr_state = st.text_input("UF", key="report_hdr_state")
-                                hdr_operation = st.text_input("Operação com participante", key="report_hdr_operation")
-                            with h3:
+
+                            st.markdown("**01 · Dados do Processo**")
+                            p1, p2 = st.columns([3, 2])
+                            with p1:
+                                hdr_process = st.text_input(
+                                    "Processo nº", key="report_hdr_process", placeholder="0000000-00.0000.0.00.0000"
+                                )
+                            with p2:
                                 hdr_district = st.text_input("Comarca", key="report_hdr_district")
+                            p3, p4 = st.columns([4, 1])
+                            with p3:
+                                hdr_court = st.text_input("Vara", key="report_hdr_court")
+                            with p4:
+                                hdr_state = st.selectbox(
+                                    "UF", BRAZILIAN_STATES, key="report_hdr_state", format_func=lambda uf: uf or "—"
+                                )
+                            p5, p6 = st.columns(2)
+                            with p5:
+                                hdr_authors = st.text_input("Autor(es)", key="report_hdr_authors")
+                            with p6:
                                 hdr_lawyer = st.text_input("Advogado responsável", key="report_hdr_lawyer")
+
+                            st.markdown("**02 · Participante e Operação**")
+                            q1, q2 = st.columns([3, 1])
+                            with q1:
+                                hdr_borrowers = st.text_input(
+                                    "Mutuário(s)", key="report_hdr_borrowers",
+                                    placeholder="Mais de um: separe com ponto e vírgula",
+                                )
+                            with q2:
+                                hdr_registrations = st.text_input("Matrícula(s)", key="report_hdr_registrations")
+                            q3, q4, q5 = st.columns([2, 2, 3])
+                            with q3:
+                                hdr_operation = st.text_input("Operação com participante", key="report_hdr_operation")
+                            with q4:
+                                hdr_contracts = st.text_input(
+                                    "Contrato(s)", key="report_hdr_contracts",
+                                    placeholder="Em branco: nº do contrato",
+                                )
+                            with q5:
+                                hdr_modality = st.text_input(
+                                    "Modalidade", key="report_hdr_modality", placeholder=f"Em branco: {modality_name}",
+                                )
+
+                            st.markdown("**03 · Demanda**")
+                            r1, r2 = st.columns([1, 2])
+                            with r1:
                                 hdr_area = st.text_input("Área de destino", key="report_hdr_area")
-                            s1, s2 = st.columns(2)
-                            with s1:
+                            with r2:
                                 hdr_subject = st.text_input("Assunto", key="report_hdr_subject")
-                            with s2:
-                                hdr_reference = st.text_input("Referência", key="report_hdr_reference")
+                            hdr_reference = st.text_input("Referência", key="report_hdr_reference")
+
+                            st.markdown("**Encerramento**")
                             hdr_responsible = st.text_input("Responsável pela informação", key="report_hdr_responsible")
 
                         with st.expander("Dados contratuais complementares", expanded=True):
@@ -1010,6 +1050,25 @@ elif module == "Evolução de contrato":
                                         validation_messages.append(
                                             f"Prestação {number}: o valor apresentado da prestação não corresponde à soma dos juros e da amortização."
                                         )
+                                header = ManifestationHeader(
+                                    issue_date=hdr_date,
+                                    process_number=hdr_process.strip(),
+                                    district=hdr_district.strip(),
+                                    court=hdr_court.strip(),
+                                    state=hdr_state.strip(),
+                                    authors=hdr_authors.strip(),
+                                    lawyer=hdr_lawyer.strip(),
+                                    borrowers=hdr_borrowers.strip(),
+                                    registrations=hdr_registrations.strip(),
+                                    operation=hdr_operation.strip(),
+                                    contracts=hdr_contracts.strip() or contract_number.strip(),
+                                    modality=hdr_modality.strip() or modality_name,
+                                    destination_area=hdr_area.strip(),
+                                    subject=hdr_subject.strip(),
+                                    reference=hdr_reference.strip(),
+                                    responsible=hdr_responsible.strip(),
+                                )
+                                header_notices = header_review(header)
                                 identity = ReportIdentity(
                                     contract_number=contract_number.strip(),
                                     participant_name=participant_name.strip(),
@@ -1025,35 +1084,21 @@ elif module == "Evolução de contrato":
                                     elaborator=elaborator.strip(),
                                     validator=validator.strip(),
                                     additional_note=additional_note.strip(),
-                                    header=ManifestationHeader(
-                                        issue_date=hdr_date,
-                                        process_number=hdr_process.strip(),
-                                        district=hdr_district.strip(),
-                                        court=hdr_court.strip(),
-                                        state=hdr_state.strip(),
-                                        authors=hdr_authors.strip(),
-                                        lawyer=hdr_lawyer.strip(),
-                                        operation=hdr_operation.strip(),
-                                        contracts=contract_number.strip(),
-                                        modality=modality_name,
-                                        destination_area=hdr_area.strip(),
-                                        subject=hdr_subject.strip(),
-                                        reference=hdr_reference.strip(),
-                                        responsible=hdr_responsible.strip(),
-                                    ),
+                                    header=header,
                                 )
                                 st.session_state["report_identity"] = identity
                                 st.session_state["report_adjustments"] = overrides
                                 st.session_state["report_selected_numbers"] = list(selected_numbers)
                                 st.session_state["report_validation_messages"] = validation_messages
+                                st.session_state["report_header_notices"] = header_notices
                                 st.session_state["report_pdf"] = None
                                 st.session_state["report_pdf_name"] = None
-                                st.session_state["report_docx"] = None
-                                st.session_state["report_docx_name"] = None
                                 st.success("Dados e ajustes aplicados. O parecer está pronto para ser gerado.")
                             except (InvalidOperation, ValueError) as exc:
                                 st.error(f"Não foi possível interpretar um valor apresentado: {exc}")
 
+                    for message in st.session_state.get("report_header_notices", []):
+                        st.info(message)
                     for message in st.session_state.get("report_validation_messages", []):
                         st.warning(message)
 
@@ -1070,7 +1115,7 @@ elif module == "Evolução de contrato":
                     g1, g2 = st.columns([3, 1])
                     with g1:
                         generate_pdf = st.button(
-                            "Gerar parecer (PDF e Word)",
+                            "Gerar parecer em PDF",
                             type="primary",
                             use_container_width=True,
                             disabled=not ready_to_generate,
@@ -1095,43 +1140,17 @@ elif module == "Evolução de contrato":
                             st.session_state["report_pdf_name"] = pdf_filename(
                                 modality_name, applied_identity.contract_number
                             )
-                            st.session_state["report_docx"] = build_opinion_docx(
-                                settings=settings,
-                                result=result,
-                                modality_name=modality_name,
-                                identity=applied_identity,
-                                selected_installment_numbers=applied_numbers,
-                                overrides=st.session_state["report_adjustments"],
-                            )
-                            st.session_state["report_docx_name"] = docx_filename(
-                                modality_name, applied_identity.contract_number
-                            )
-                            st.success("Parecer gerado em PDF e Word. O cálculo original e os campos da evolução continuam preservados.")
+                            st.success("Parecer gerado. O cálculo original e os campos da evolução continuam preservados.")
                         except (ValueError, KeyError, InvalidOperation) as exc:
                             st.error(str(exc))
 
                     if st.session_state.get("report_pdf"):
-                        d1, d2 = st.columns(2)
-                        with d1:
-                            st.download_button(
-                                "Baixar parecer em PDF",
-                                data=st.session_state["report_pdf"],
-                                file_name=st.session_state["report_pdf_name"],
-                                mime="application/pdf",
-                                use_container_width=True,
-                            )
-                        with d2:
-                            if st.session_state.get("report_docx"):
-                                st.download_button(
-                                    "Baixar parecer em Word (.docx)",
-                                    data=st.session_state["report_docx"],
-                                    file_name=st.session_state["report_docx_name"],
-                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                    use_container_width=True,
-                                )
-                        st.caption(
-                            "O arquivo Word traz o mesmo conteúdo do PDF no modelo corporativo e pode ser editado, "
-                            "por exemplo para preencher Mutuário(s) e Matrícula(s), que o sistema não coleta por causa da LGPD."
+                        st.download_button(
+                            "Baixar parecer em PDF",
+                            data=st.session_state["report_pdf"],
+                            file_name=st.session_state["report_pdf_name"],
+                            mime="application/pdf",
+                            use_container_width=True,
                         )
 
 

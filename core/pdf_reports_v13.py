@@ -341,7 +341,7 @@ def _build_story(tmp_dir,settings,result,modality_name,identity,selected_rows,ov
 
 
 def opinion_body_story(*,settings,result,modality_name:str,identity,selected_installment_numbers:Sequence[int],overrides:Mapping[int,Mapping[str,Decimal]]|None=None)->list:
-    """Conteúdo técnico do parecer (sem abertura e fechamento), comum ao PDF e ao Word."""
+    """Conteúdo técnico do parecer, sem a abertura e o fechamento do padrão FUNCEF."""
     overrides=overrides or {}
     selected_rows=base.selected_installments(result,selected_installment_numbers)
     if settings.modality_code not in {'MOD_001','MOD_002'}:

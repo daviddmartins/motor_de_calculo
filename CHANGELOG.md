@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.11 — 2026-10-07
+
+- cabeçalho do parecer (quadros 01 a 03, data e responsável) passa a ser preenchido integralmente à mão no formulário, na mesma ordem do PDF, incluindo Mutuário(s) e Matrícula(s);
+- UF em lista com as 27 unidades da federação; Contrato(s) e Modalidade, quando em branco, usam o número do contrato e a modalidade do cálculo;
+- avisos não bloqueantes ao aplicar os dados: campos do cabeçalho em branco e número do processo fora do padrão CNJ;
+- removida a exportação do parecer em Word (.docx); o parecer volta a ser emitido somente em PDF;
+- nenhuma regra matemática foi alterada.
+
 ## 0.10.10 — 2026-10-07
 
 - tipografia corporativa única no parecer: somente Helvetica (equivalente métrica do Arial do modelo), com corpo de texto 9 pt, tabelas 7,5 pt e nenhum texto abaixo de 7 pt;
