@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local secrets / environment
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+*.pem
+*.key
+
+# Local/operational access registry - never commit real user data
+config/*Acesso*.xlsx
+config/*acesso*.xlsx
+config/*ACESSO*.xlsx
+config/Parametros_Acessop_Motor_Calculos.xlsx
+config/parametros_acesso_motor_calculos.xlsx
+
+# Runtime / generated artifacts
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Generated reports / exports
+output/
+outputs/
+exports/
+*.pdf
